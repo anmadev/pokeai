@@ -1,0 +1,33 @@
+services:
+  showdown:
+    build:
+      context: ./server
+      dockerfile: ../docker/showdown.Dockerfile
+    ports:
+      - "8000:8000"     # exposes the server to your host machine
+    networks:
+      - battle-net
+    restart: unless-stopped
+
+  # Agent service — only used when running fully containerized
+  # For development, run the agent locally with Poetry instead
+  agent:
+    build:
+      context: .
+      dockerfile: docker/agent.Dockerfile
+    depends_on:
+      - showdown
+    environment:
+      - SHOWDOWN_HOST=showdown    # resolves to the showdown container
+      - SHOWDOWN_PORT=8000
+    networks:
+      - battle-net
+    volumes:
+      - ./src:/app/src            # live code sync when running in Docker
+      - ./models:/app/models
+    profiles:
+      - full                      # only starts with: docker compose --profile full up
+
+networks:
+  battle-net:
+    driver: bridge
