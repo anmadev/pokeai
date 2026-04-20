@@ -68,3 +68,6 @@ docker-compose.override.yml
 server/node_modules/
 server/dist/
 server/build/
+
+# wandb
+wandb/

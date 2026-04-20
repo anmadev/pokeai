@@ -2,13 +2,14 @@
 name = "pokeai"
 version = "0.1.0"
 description = "Pokémon Showdown RL agent"
-authors = ["Your Name <you@email.com>"]
+authors = ["Andrea Marzella <anmastdev@gmail.com>"]
 readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
 poke-env = ">=0.8"
+wandb = "^0.26.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
