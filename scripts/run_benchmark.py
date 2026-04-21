@@ -1,5 +1,5 @@
+import argparse
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -19,7 +19,7 @@ from src.utils.logger import get_logger, log_benchmark_result
 logger = get_logger("run_benchmark")
 
 
-async def main():
+async def main(n_battles: int):
     server_config = LocalhostServerConfiguration
 
     matchups = [
@@ -40,7 +40,7 @@ async def main():
             player_a_class=player_a_class,
             player_b_class=player_b_class,
             server_config=server_config,
-            n_battles=100,
+            n_battles=n_battles,
         )
         log_benchmark_result(result)
         all_results.append(result)
@@ -54,4 +54,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n-battles", type=int, default=100)
+    args = parser.parse_args()
+    asyncio.run(main(n_battles=args.n_battles))
