@@ -1,7 +1,5 @@
-import os
 from typing import Optional
 
-from poke_env import ServerConfiguration, LocalhostServerConfiguration
 from poke_env.battle.pokemon import Pokemon
 from poke_env.player import Player
 

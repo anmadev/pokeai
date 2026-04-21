@@ -1,28 +1,6 @@
-import asyncio
-import os
-
-from poke_env import LocalhostServerConfiguration, ServerConfiguration
 from poke_env.battle.move import Move
 from poke_env.battle.pokemon import Pokemon
 from poke_env.player import Player
-
-
-def get_server_config() -> ServerConfiguration:
-    """
-    Returns server config depending on environment.
-    - When running locally (Poetry): connects to localhost:8000
-    - When running in Docker (agent container): connects to showdown:8000
-    """
-    host = os.environ.get("SHOWDOWN_HOST", "localhost")
-    port = int(os.environ.get("SHOWDOWN_PORT", 8000))
-
-    if host == "localhost":
-        return LocalhostServerConfiguration
-
-    return ServerConfiguration(
-        server_url=f"{host}:{port}",
-        authentication_url="https://play.pokemonshowdown.com/action.php",
-    )
 
 
 def estimate_move_power(move: Move, opponent: Pokemon) -> float:
@@ -47,6 +25,10 @@ def estimate_move_power(move: Move, opponent: Pokemon) -> float:
     return move.base_power * type_multiplier
 
 
+# -------------------------------------------------------------------
+# Agent
+# -------------------------------------------------------------------
+
 class MaxDamagePlayer(Player):
     def choose_move(self, battle):
         if battle.available_moves:
@@ -62,34 +44,3 @@ class MaxDamagePlayer(Player):
         # For now: switch to the first available Pokémon
         # We will improve switching logic in the heuristic agent
         return self.choose_random_move(battle)
-
-
-async def main():
-    from poke_env.player import RandomPlayer
-
-    server_config = get_server_config()
-
-    max_damage_player = MaxDamagePlayer(
-        battle_format="gen1randombattle",
-        server_configuration=server_config,
-        max_concurrent_battles=1,
-    )
-
-    random_player = RandomPlayer(
-        battle_format="gen1randombattle",
-        server_configuration=server_config,
-        max_concurrent_battles=1,
-    )
-
-    n_battles = 100
-
-    print(f"Starting {n_battles} battles: MaxDamage vs Random...")
-    await max_damage_player.battle_against(random_player, n_battles=n_battles)
-
-    print("\n--- Results ---")
-    print(f"MaxDamage | Wins: {max_damage_player.n_won_battles} / {n_battles} ({max_damage_player.n_won_battles}%)")
-    print(f"Random    | Wins: {random_player.n_won_battles} / {n_battles} ({random_player.n_won_battles}%)")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
