@@ -23,7 +23,7 @@ async def main(n_battles: int):
     server_config = LocalhostServerConfiguration
 
     matchups = [
-        (RandomPlayer,      RandomPlayer,      "sanity check"),
+        # (RandomPlayer,      RandomPlayer,      "sanity check"),
         (MaxDamagePlayer,   RandomPlayer,      "max damage vs random"),
         (HeuristicPlayer,   RandomPlayer,      "heuristic vs random"),
         (HeuristicPlayer,   MaxDamagePlayer,   "heuristic vs max damage"),
