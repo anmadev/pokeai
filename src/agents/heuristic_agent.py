@@ -3,6 +3,8 @@ from typing import Optional
 from poke_env.battle.pokemon import Pokemon
 from poke_env.player import Player
 
+from src.engine.damage_calc import best_move_by_damage, calculate_damage_range
+
 
 # -------------------------------------------------------------------
 # Thresholds — named constants so they're easy to tune and document
@@ -31,10 +33,11 @@ def offensive_score(candidate: Pokemon, opponent: Pokemon) -> float:
     if not damaging_moves:
         return 1.0
 
-    return max(
-        m.base_power * opponent.damage_multiplier(m)
-        for m in damaging_moves
-    )
+    result = best_move_by_damage(candidate, opponent, damaging_moves)
+    if result is None:
+        return 1.0
+    _, damage_range = result
+    return (damage_range.min_damage + damage_range.max_damage) / 2
 
 
 def defensive_score(candidate: Pokemon, opponent: Pokemon) -> float:
@@ -45,9 +48,8 @@ def defensive_score(candidate: Pokemon, opponent: Pokemon) -> float:
     any opponent moves yet, returns 1.0 (neutral) — we have no
     information to penalize on.
 
-    Returns the inverse of the worst hit the opponent can land:
-    a candidate that takes 0.5x damage scores 2.0, one that takes
-    2x damage scores 0.5.
+    Returns the inverse of the worst expected damage the opponent can
+    land, computed with the full Gen 1 damage formula.
     """
     known_opponent_moves = [
         m for m in opponent.moves.values() if m.base_power > 0
@@ -55,10 +57,15 @@ def defensive_score(candidate: Pokemon, opponent: Pokemon) -> float:
     if not known_opponent_moves:
         return 1.0
 
-    worst_multiplier = max(
-        candidate.damage_multiplier(m) for m in known_opponent_moves
-    )
-    return 1.0 / worst_multiplier if worst_multiplier > 0 else 1.0
+    worst_expected = 0.0
+    for m in known_opponent_moves:
+        result = calculate_damage_range(m, opponent, candidate)
+        if result is None:
+            continue
+        expected = (result.min_damage + result.max_damage) / 2
+        if expected > worst_expected:
+            worst_expected = expected
+    return 1.0 / worst_expected if worst_expected > 0 else 1.0
 
 
 def score_switch_candidate(
@@ -153,18 +160,18 @@ def best_move(battle):
     """
     Picks the best damaging move, falling back to any move if needed.
 
-    Prefers damaging moves weighted by type effectiveness.
-    Avoids pure status moves entirely when a damaging option exists —
-    using Growl when you could use Thunderbolt is strictly wrong here.
+    Uses the full Gen 1 damage formula to rank moves. Avoids pure
+    status moves entirely when a damaging option exists — using Growl
+    when you could use Thunderbolt is strictly wrong here.
     """
     damaging = [m for m in battle.available_moves if m.base_power > 0]
     opponent = battle.opponent_active_pokemon
 
     if damaging:
-        return max(
-            damaging,
-            key=lambda m: m.base_power * opponent.damage_multiplier(m),
-        )
+        result = best_move_by_damage(battle.active_pokemon, opponent, damaging)
+        if result is not None:
+            move, _ = result
+            return move
 
     # No damaging moves — all status. Pick any (nothing better we can do)
     if battle.available_moves:
