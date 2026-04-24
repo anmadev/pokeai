@@ -65,8 +65,10 @@ class DamageRange:
     """
     Represents the min/max damage a move can deal.
 
-    min_damage: lowest possible roll (random = 217/255 ≈ 0.851)
-    max_damage: highest possible roll (random = 255/255 = 1.0)
+    min_damage: lowest possible roll (random = 217/255 ≈ 0.851) 
+    and lowest number of hits (1 for multi-hit moves)
+    max_damage: highest possible roll (random = 255/255 = 1.0) 
+    and highest number of hits (1 for multi-hit moves)
     min_percent: min damage as fraction of opponent's estimated max HP
     max_percent: max damage as fraction of opponent's estimated max HP
     is_special: whether the Special stat was used
@@ -165,13 +167,9 @@ def calculate_damage_range(
             if special:
                 # poke-env exposes base stats; current_stats includes boosts
                 # for our own Pokémon
-                atk = attacker.stats.get("spa") or estimate_stat(
-                    attacker.base_stats.get("spa")
-                )
+                atk = attacker.stats.get("spa")
             else:
-                atk = attacker.stats.get("atk") or estimate_stat(
-                    attacker.base_stats.get("atk")
-                )
+                atk = attacker.stats.get("atk")
         except (AttributeError, TypeError):
             atk = estimate_stat(attacker.base_stats.get("spa" if special else "atk"))
 
@@ -181,21 +179,15 @@ def calculate_damage_range(
     else:
         try:
             if special:
-                defense = defender.stats.get("spd") or estimate_stat(
-                    defender.base_stats.get("spd")
-                )
+                defense = defender.stats.get("spd")
             else:
-                defense = defender.stats.get("def") or estimate_stat(
-                    defender.base_stats.get("def")
-                )
+                defense = defender.stats.get("def")
         except (AttributeError, TypeError):
             defense = estimate_stat(defender.base_stats.get("spd" if special else "def"))
 
     # ---- Resolve defender HP for percentage calculation -------------
     try:
-        max_hp = defender.max_hp or estimate_stat(
-            defender.base_stats.get("hp"), is_hp=True
-        )
+        max_hp = defender.max_hp
     except (AttributeError, TypeError):
         max_hp = estimate_stat(defender.base_stats.get("hp"), is_hp=True)
 
@@ -205,6 +197,7 @@ def calculate_damage_range(
 
     # ---- Base damage (before random roll) ---------------------------
     # floor(floor(floor(2*L/5+2) * A * P / D) / 50 + 2) * STAB * Type
+    # does not take crit into account since it's not relevant for move selection
     level_factor = (2 * attacker_level // 5) + 2
     raw = (level_factor * atk * move.base_power) // defense
     base_damage = raw // 50 + 2
@@ -217,9 +210,13 @@ def calculate_damage_range(
     # We decompose the combined multiplier for correctness
     after_type = int(after_stab * type_multiplier)
 
+    # ---- Multi-hit moves ------------------------------------------------
+    min_hits = move.n_hit[0]
+    max_hits = move.n_hit[-1]
+
     # ---- Random rolls -----------------------------------------------
-    min_damage = _apply_random(after_type, RANDOM_MIN)
-    max_damage = _apply_random(after_type, RANDOM_MAX)
+    min_damage = _apply_random(after_type * min_hits, RANDOM_MIN)
+    max_damage = _apply_random(after_type * max_hits, RANDOM_MAX)
 
     # Edge case: minimum 1 damage if the move is not immune
     min_damage = max(1, min_damage)
