@@ -1,9 +1,16 @@
+import json
+import re
+from pathlib import Path
 from typing import Optional
 
+from poke_env.battle.move import Move
 from poke_env.battle.pokemon import Pokemon
 from poke_env.player import Player
 
-from src.engine.damage_calc import best_move_by_damage, calculate_damage_range
+from src.engine.damage_calc import (
+    best_move_by_damage,
+    calculate_damage_range,
+)
 
 
 # -------------------------------------------------------------------
@@ -12,6 +19,84 @@ from src.engine.damage_calc import best_move_by_damage, calculate_damage_range
 LOW_HP_THRESHOLD = 0.25          # switch out if HP drops below this
 SWITCH_ADVANTAGE_THRESHOLD = 2.0 # switch if best move effectiveness is 2x+
                                   # in favor of opponent's type
+
+
+# -------------------------------------------------------------------
+# Best-moves lookup data (loaded once at import time)
+# -------------------------------------------------------------------
+_DATA_DIR = Path(__file__).parent.parent.parent / "data"
+
+with open(_DATA_DIR / "best_moves.json") as _f:
+    _BEST_MOVES: dict = json.load(_f)
+
+# Map poke-env species IDs (lowercase, no punctuation) → JSON key
+_SPECIES_TO_JSON_KEY: dict[str, str] = {
+    re.sub(r"[^a-z0-9]", "", k.lower()): k for k in _BEST_MOVES
+}
+
+# Type ordering as used when generating best_moves.json
+_TYPE_ORDER: dict[str, int] = {
+    t: i for i, t in enumerate([
+        "Normal", "Fire", "Water", "Electric", "Grass", "Ice",
+        "Fighting", "Poison", "Ground", "Flying", "Psychic",
+        "Bug", "Rock", "Ghost", "Dragon",
+    ])
+}
+
+
+# -------------------------------------------------------------------
+# Potential-threat helpers
+# -------------------------------------------------------------------
+
+def _defender_type_key(pokemon: Pokemon) -> str:
+    """
+    Builds the type-combo key used in best_moves.json for a given defender.
+    Types are ordered by their position in the Gen 1 type list.
+    """
+    types = [t.name.capitalize() for t in pokemon.types if t is not None]
+    types.sort(key=lambda t: _TYPE_ORDER.get(t, 99))
+    return "/".join(types)
+
+
+def _potential_threat_damage(attacker: Pokemon, defender: Pokemon) -> float:
+    """
+    Estimates the expected damage the attacker could deal to the defender
+    using the best physical and special moves available in its learnset.
+
+    This provides a threat floor even before the opponent has revealed any
+    moves, preventing the heuristic from being blind to dangerous matchups
+    on turn 1.
+
+    Returns the higher of the two (physical / special) expected damage values.
+    """
+    json_key = _SPECIES_TO_JSON_KEY.get(attacker.species)
+    if json_key is None:
+        return 0.0
+
+    type_key = _defender_type_key(defender)
+    matchup = _BEST_MOVES.get(json_key, {}).get(type_key)
+    if matchup is None:
+        return 0.0
+
+    worst = 0.0
+
+    for category in ("physical", "special"):
+        move_name = matchup.get(category, {}).get("best_max", {}).get("move")
+        if not move_name:
+            continue
+        move_id = re.sub(r"[^a-z0-9]", "", move_name.lower())
+        try:
+            move = Move(move_id, gen=1)
+        except Exception:
+            continue
+        result = calculate_damage_range(move, attacker, defender)
+        if result is None:
+            continue
+#        expected = (result.min_damage + result.max_damage) / 2
+        expected = result.max_damage # be pessimistic about potential threats — assume max damage roll and hits 
+        worst = max(worst, expected)
+
+    return worst
 
 
 # -------------------------------------------------------------------
@@ -44,27 +129,32 @@ def defensive_score(candidate: Pokemon, opponent: Pokemon) -> float:
     """
     Estimates how safely a Pokémon can switch into the opponent.
 
-    Checks the opponent's known (revealed) moves. If we haven't seen
-    any opponent moves yet, returns 1.0 (neutral) — we have no
-    information to penalize on.
+    Considers two sources of threat:
+    1. Revealed moves: moves the opponent has already used this battle.
+    2. Potential best moves: the highest-damage physical and special move
+       the opponent *could* have, based on its species learnset and the
+       candidate's type. This provides a non-zero threat floor on turn 1
+       before any opponent moves are known.
 
-    Returns the inverse of the worst expected damage the opponent can
-    land, computed with the full Gen 1 damage formula.
+    Returns the inverse of the worst expected damage across both sources.
     """
-    known_opponent_moves = [
-        m for m in opponent.moves.values() if m.base_power > 0
-    ]
-    if not known_opponent_moves:
-        return 1.0
-
     worst_expected = 0.0
-    for m in known_opponent_moves:
+
+    # Source 1: known revealed opponent moves
+    for m in opponent.moves.values():
+        if m.base_power == 0:
+            continue
         result = calculate_damage_range(m, opponent, candidate)
         if result is None:
             continue
         expected = (result.min_damage + result.max_damage) / 2
         if expected > worst_expected:
             worst_expected = expected
+
+    # Source 2: best potential moves from the opponent's learnset
+    potential = _potential_threat_damage(opponent, candidate)
+    worst_expected = max(worst_expected, potential)
+
     return 1.0 / worst_expected if worst_expected > 0 else 1.0
 
 

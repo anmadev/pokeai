@@ -3,6 +3,8 @@ from typing import Optional
 
 from poke_env.battle.move import Move
 from poke_env.battle.pokemon import Pokemon
+from poke_env.data.gen_data import GenData
+from poke_env.stats import compute_raw_stats_dvs
 
 
 # ------------------------------------------------------------------
@@ -23,32 +25,25 @@ PHYSICAL_TYPES = {
 RANDOM_MIN = 217
 RANDOM_MAX = 255
 
-# Level is always 100 in Showdown Gen 1 random battles
-BATTLE_LEVEL = 100
+# Level is always 80 in Showdown Gen 1 random battles
+BATTLE_LEVEL = 80
+
+GEN_1 = GenData.from_gen(1)
 
 
 # ------------------------------------------------------------------
 # Stat estimation
 # ------------------------------------------------------------------
 
-def estimate_stat(base: int, is_hp: bool = False) -> int:
-    """
-    Estimates a Gen 1 stat assuming max DVs (15) and max StatExp (65535).
-
-    Formula (Level 100, DV=15, StatExp=65535):
-        Non-HP: floor((Base + 15) * 2 + 64) + 5  = Base * 2 + 99
-        HP:     floor((Base + 15) * 2 + 64) + 110 = Base * 2 + 204
-
-    This is exact for Showdown Gen 1 random battles where all Pokémon
-    are generated with maximum DVs and StatExp.
-
-    Under partial information (opponent's Pokémon) we use base stats
-    as the only available signal — this formula gives us a point
-    estimate that is correct the vast majority of the time.
-    """
-    if is_hp:
-        return base * 2 + 204
-    return base * 2 + 99
+def projected_stats(pokemon: Pokemon) -> dict[str, int]:
+    """Returns a dict of projected stats for the given Pokémon."""
+    t = compute_raw_stats_dvs(
+        pokemon.species,
+        [15, 15, 15, 15, 15, 15],  # max DVs
+        BATTLE_LEVEL,  # level
+        GEN_1,
+    )
+    return {'hp': t[0], 'atk': t[1], 'def': t[2], 'spa': t[3], 'spd': t[4], 'spe': t[5]}
 
 
 def is_special_move(move: Move) -> bool:
@@ -66,9 +61,9 @@ class DamageRange:
     Represents the min/max damage a move can deal.
 
     min_damage: lowest possible roll (random = 217/255 ≈ 0.851) 
-    and lowest number of hits (1 for multi-hit moves)
+        and lowest number of hits (1 for multi-hit moves)
     max_damage: highest possible roll (random = 255/255 = 1.0) 
-    and highest number of hits (1 for multi-hit moves)
+        and highest number of hits (1 for multi-hit moves)
     min_percent: min damage as fraction of opponent's estimated max HP
     max_percent: max damage as fraction of opponent's estimated max HP
     is_special: whether the Special stat was used
@@ -160,36 +155,32 @@ def calculate_damage_range(
         )
 
     # ---- Resolve attack stat ----------------------------------------
+    atk_stats = projected_stats(attacker)
+    atk = None
     if attack_stat_override is not None:
         atk = attack_stat_override
     else:
-        try:
-            if special:
-                # poke-env exposes base stats; current_stats includes boosts
-                # for our own Pokémon
-                atk = attacker.stats.get("spa")
-            else:
-                atk = attacker.stats.get("atk")
-        except (AttributeError, TypeError):
-            atk = estimate_stat(attacker.base_stats.get("spa" if special else "atk"))
+        if special:
+            atk = attacker.stats.get("spa") or atk_stats.get("spa")
+        else:
+            atk = attacker.stats.get("atk") or atk_stats.get("atk")
 
     # ---- Resolve defense stat ---------------------------------------
+    defender_stats = projected_stats(defender)
+    defense = None
     if defense_stat_override is not None:
         defense = defense_stat_override
     else:
-        try:
-            if special:
-                defense = defender.stats.get("spd")
-            else:
-                defense = defender.stats.get("def")
-        except (AttributeError, TypeError):
-            defense = estimate_stat(defender.base_stats.get("spd" if special else "def"))
+        if special:
+            defense = defender.stats.get("spd") or defender_stats.get("spd")
+        else:
+            defense = defender.stats.get("def") or defender_stats.get("def")
 
     # ---- Resolve defender HP for percentage calculation -------------
     try:
         max_hp = defender.max_hp
     except (AttributeError, TypeError):
-        max_hp = estimate_stat(defender.base_stats.get("hp"), is_hp=True)
+        max_hp = defender_stats.get("hp", 1)  # default to 1 to avoid div by zero
 
     # ---- STAB -------------------------------------------------------
     stab = move.type in attacker.types
