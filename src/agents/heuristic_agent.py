@@ -10,6 +10,7 @@ from poke_env.player import Player
 from src.engine.damage_calc import (
     best_move_by_damage,
     calculate_damage_range,
+    projected_stats,
 )
 
 
@@ -185,6 +186,50 @@ def score_switch_candidate(
 # Decision functions
 # -------------------------------------------------------------------
 
+def _active_can_outspeed_and_ko(battle) -> bool:
+    """
+    Returns True if all three conditions hold:
+    - The active Pokémon is faster than the opponent (by base-stat estimate).
+    - The opponent threatens an OHKO on the active Pokémon (potential max
+      damage ≥ current HP), meaning staying in is otherwise fatal.
+    - The active Pokémon has a move that could OHKO the opponent (max
+      damage ≥ opponent's estimated remaining HP).
+
+    When all three hold, attacking is strictly better than switching: we
+    move first, remove the threat, and deny the opponent a free turn.
+    """
+    active = battle.active_pokemon
+    opponent = battle.opponent_active_pokemon
+
+    # --- Speed: ours (known battle stat) vs opponent (base-stat estimate) ---
+    opp_projected_stats = projected_stats(opponent)
+    our_speed = active.stats.get("spe")
+    opp_speed = opp_projected_stats.get("spe")
+
+    if our_speed <= opp_speed:
+        return False  # opponent moves first — we can't guarantee the KO
+
+    # --- Does the opponent threaten to OHKO us? ---
+    opp_threat = _potential_threat_damage(opponent, active)
+    if opp_threat < active.current_hp:
+        return False  # not a lethal threat — veto doesn't apply
+
+    # --- Can we OHKO the opponent with our best available move? ---
+    damaging = [m for m in battle.available_moves if m.base_power > 0]
+    if not damaging:
+        return False
+
+    result = best_move_by_damage(active, opponent, damaging)
+    if result is None:
+        return False
+
+    _, damage_range = result
+    opp_max_hp = projected_stats(opponent).get("hp")
+    opp_remaining_hp = opp_max_hp * opponent.current_hp_fraction
+
+    return damage_range.max_damage >= opp_remaining_hp
+
+
 def should_switch(battle) -> bool:
     """
     Returns True if switching is worth considering.
@@ -193,6 +238,10 @@ def should_switch(battle) -> bool:
     1. Low HP: active Pokémon is below the survival threshold
     2. Type trap: our best move against the opponent is resisted (< 1x),
        meaning we are likely in a losing offensive matchup
+
+    Veto: even when a switch looks warranted, stay in if the active
+    Pokémon outspeeds the opponent, the opponent threatens an OHKO, and
+    we can OHKO first — switching gives the opponent a free turn.
 
     We only recommend switching if there is actually a healthy switch
     option available — no point flagging a switch if all bench Pokémon
@@ -209,20 +258,30 @@ def should_switch(battle) -> bool:
     if not healthy_switches:
         return False
 
+    wants_switch = False
+
     # Condition 1: low HP
     if active.current_hp_fraction < LOW_HP_THRESHOLD:
-        return True
+        wants_switch = True
 
     # Condition 2: all our damaging moves are resisted
-    damaging_moves = [m for m in battle.available_moves if m.base_power > 0]
-    if damaging_moves:
-        best_effectiveness = max(
-            opponent.damage_multiplier(m) for m in damaging_moves
-        )
-        if best_effectiveness < 1.0:
-            return True
+    if not wants_switch:
+        damaging_moves = [m for m in battle.available_moves if m.base_power > 0]
+        if damaging_moves:
+            best_effectiveness = max(
+                opponent.damage_multiplier(m) for m in damaging_moves
+            )
+            if best_effectiveness < 1.0:
+                wants_switch = True
 
-    return False
+    if not wants_switch:
+        return False
+
+    # Veto: we outspeed and can KO first — attacking is better than switching
+    if _active_can_outspeed_and_ko(battle):
+        return False
+
+    return True
 
 
 def best_switch(battle) -> Optional[Pokemon]:
