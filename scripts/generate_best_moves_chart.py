@@ -141,7 +141,7 @@ print(f"  Offensive types: {len(result)}")
 print(f"  Defensive combos per type: {len(def_combos)}")
 
 # ── Per-Pokémon best moves ────────────────────────────────────────────────────
-# Keyed by Pokémon → defensive type combo → physical/special → best_min/best_max
+# Keyed by Pokémon -> defensive type combo -> physical/special -> best_min/best_max
 
 pokemon_result = {}
 

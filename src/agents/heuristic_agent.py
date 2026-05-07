@@ -30,7 +30,7 @@ _DATA_DIR = Path(__file__).parent.parent.parent / "data"
 with open(_DATA_DIR / "best_moves.json") as _f:
     _BEST_MOVES: dict = json.load(_f)
 
-# Map poke-env species IDs (lowercase, no punctuation) → JSON key
+# Map poke-env species IDs (lowercase, no punctuation) -> JSON key
 _SPECIES_TO_JSON_KEY: dict[str, str] = {
     re.sub(r"[^a-z0-9]", "", k.lower()): k for k in _BEST_MOVES
 }
@@ -338,9 +338,9 @@ class HeuristicPlayer(Player):
     A rule-based Pokémon player that makes decisions using game knowledge.
 
     Decision priority:
-    1. If switching is warranted (low HP or bad matchup) → switch to
+    1. If switching is warranted (low HP or bad matchup) -> switch to
        the best available candidate
-    2. Otherwise → use the best available damaging move
+    2. Otherwise -> use the best available damaging move
 
     This agent has no learning component — it encodes human intuition
     about Gen 1 mechanics directly as rules. Its win rate against
