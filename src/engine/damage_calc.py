@@ -1,11 +1,9 @@
 from dataclasses import dataclass
-from typing import Optional
 
 from poke_env.battle.move import Move
 from poke_env.battle.pokemon import Pokemon
 from poke_env.data.gen_data import GenData
 from poke_env.stats import compute_raw_stats_dvs
-
 
 # ------------------------------------------------------------------
 # Gen 1 type categorisation
@@ -111,9 +109,9 @@ def calculate_damage_range(
     attacker: Pokemon,
     defender: Pokemon,
     attacker_level: int = BATTLE_LEVEL,
-    attack_stat_override: Optional[int] = None,
-    defense_stat_override: Optional[int] = None,
-) -> Optional[DamageRange]:
+    attack_stat_override: int | None = None,
+    defense_stat_override: int | None = None,
+) -> DamageRange | None:
     """
     Calculates the min/max damage range for a move in Gen 1.
 
@@ -229,7 +227,7 @@ def best_move_by_damage(
     attacker: Pokemon,
     defender: Pokemon,
     available_moves: list[Move],
-) -> Optional[tuple[Move, DamageRange]]:
+) -> tuple[Move, DamageRange] | None:
     """
     Returns the (move, DamageRange) pair with the highest expected damage.
     Expected damage = midpoint of the min/max range.

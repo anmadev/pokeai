@@ -1,7 +1,6 @@
 from poke_env.player import Player
 
-from src.engine.damage_calc import best_move_by_damage
-
+from engine.damage_calc import best_move_by_damage
 
 # -------------------------------------------------------------------
 # Agent

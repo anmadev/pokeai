@@ -40,12 +40,8 @@ coverage.xml
 *.ipynb_checkpoints
 
 # Models / training artifacts
-models/*.pt
-models/*.pth
-models/*.ckpt
-models/*.pkl
-models/*.bin
-models/*.safetensors
+models/*
+!models/*.gitkeep
 
 # Logs
 logs/

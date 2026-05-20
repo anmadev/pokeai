@@ -1,14 +1,13 @@
-import asyncio
-from typing import Type
 
-import wandb
 from poke_env import ServerConfiguration
 from poke_env.player import Player
 
+import wandb
+
 
 async def benchmark(
-    player_a_class: Type[Player],
-    player_b_class: Type[Player],
+    player_a_class: type[Player],
+    player_b_class: type[Player],
     server_config: ServerConfiguration,
     n_battles: int = 100,
     battle_format: str = "gen1randombattle",

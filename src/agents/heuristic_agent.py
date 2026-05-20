@@ -1,18 +1,16 @@
 import json
 import re
 from pathlib import Path
-from typing import Optional
 
 from poke_env.battle.move import Move
 from poke_env.battle.pokemon import Pokemon
 from poke_env.player import Player
 
-from src.engine.damage_calc import (
+from engine.damage_calc import (
     best_move_by_damage,
     calculate_damage_range,
     projected_stats,
 )
-
 
 # -------------------------------------------------------------------
 # Thresholds — named constants so they're easy to tune and document
@@ -284,7 +282,7 @@ def should_switch(battle) -> bool:
     return True
 
 
-def best_switch(battle) -> Optional[Pokemon]:
+def best_switch(battle) -> Pokemon | None:
     """
     Picks the best switch candidate from the available bench.
 

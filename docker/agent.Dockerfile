@@ -12,4 +12,4 @@ RUN poetry config virtualenvs.create false \
 
 COPY src/ ./src/
 
-CMD ["python", "-m", "src.agents.random_agent"]
+CMD ["python", "-m", "scripts.run_benchmark"]

@@ -1,7 +1,5 @@
 import argparse
 import asyncio
-import sys
-from pathlib import Path
 
 from dotenv import load_dotenv
 from poke_env import LocalhostServerConfiguration
@@ -9,12 +7,10 @@ from poke_env.player import RandomPlayer
 
 load_dotenv()
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from src.agents.max_damage_agent import MaxDamagePlayer
-from src.agents.heuristic_agent import HeuristicPlayer
-from src.utils.benchmark import benchmark
-from src.utils.logger import get_logger, log_benchmark_result
+from agents.heuristic_agent import HeuristicPlayer
+from agents.max_damage_agent import MaxDamagePlayer
+from utils.benchmark import benchmark
+from utils.logger import get_logger, log_benchmark_result
 
 logger = get_logger("run_benchmark")
 
@@ -23,7 +19,6 @@ async def main(n_battles: int):
     server_config = LocalhostServerConfiguration
 
     matchups = [
-        # (RandomPlayer,      RandomPlayer,      "sanity check"),
         (MaxDamagePlayer,   RandomPlayer,      "max damage vs random"),
         (HeuristicPlayer,   RandomPlayer,      "heuristic vs random"),
         (HeuristicPlayer,   MaxDamagePlayer,   "heuristic vs max damage"),
