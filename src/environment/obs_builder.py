@@ -18,14 +18,14 @@ Species encoding:
   to condition unknown move slots on the legal Gen 1 learnset.
   Source: server/data/learnsets.js
 
-Total vector size: 2623 floats.
+Total vector size: 2671 floats.
 
 Layout:
-  [0        :  246]  Our active Pokémon         (246)
-  [246      : 1311]  Our bench * 5              (213 each = 1065)
-  [1311     : 1557]  Opponent active Pokémon    (246)
-  [1557     : 2622]  Opponent bench * 5         (213 each = 1065)
-  [2622     : 2623]  Turn                       (1)
+  [0        :  250]  Our active Pokémon         (250)
+  [250      : 1335]  Our bench * 5              (217 each = 1085)
+  [1335     : 1585]  Opponent active Pokémon    (250)
+  [1585     : 2670]  Opponent bench * 5         (217 each = 1085)
+  [2670     : 2671]  Turn                       (1)
 """
 
 from __future__ import annotations
@@ -126,10 +126,10 @@ MOVE_SIZE = (
     + N_STATS          # boosts on opponent = 5
     + N_STATUS_ONEHOT  # inflicted status one-hot = 6
 )
-# 1+1+3+15+1+1+2+1+1+1+1+1+1+5+5+6 = 46
+# 1+1+3+15+1+1+2+1+1+1+1+1+1+1+5+5+6 = 47
 
 N_MOVE_SLOTS = 4
-MOVES_SIZE = N_MOVE_SLOTS * MOVE_SIZE  # 184
+MOVES_SIZE = N_MOVE_SLOTS * MOVE_SIZE  # 188
 
 BASE_POKEMON_SIZE = (
     # species dropped - see module docstring
@@ -140,7 +140,7 @@ BASE_POKEMON_SIZE = (
     + 1               # status_counter
     + MOVES_SIZE      # 184
 )
-# 15+5+1+6+1+184 = 212
+# 15+5+1+6+1+188 = 216
 
 ACTIVE_EXTRA_SIZE = (
     N_BOOSTS        # 6: atk/def/spe/spa/accuracy/evasion
@@ -155,19 +155,19 @@ ACTIVE_EXTRA_SIZE = (
 
 BENCH_EXTRA_SIZE = 1  # revealed flag
 
-ACTIVE_POKEMON_SIZE = BASE_POKEMON_SIZE + ACTIVE_EXTRA_SIZE  # 212 + 34 = 246
-BENCH_POKEMON_SIZE  = BASE_POKEMON_SIZE + BENCH_EXTRA_SIZE   # 212 + 1  = 213
+ACTIVE_POKEMON_SIZE = BASE_POKEMON_SIZE + ACTIVE_EXTRA_SIZE  # 216 + 34 = 250
+BENCH_POKEMON_SIZE  = BASE_POKEMON_SIZE + BENCH_EXTRA_SIZE   # 216 + 1  = 217
 
 N_BENCH_SLOTS = 5
 
 OBS_SIZE = (
-    ACTIVE_POKEMON_SIZE                   # our active:     246
-    + N_BENCH_SLOTS * BENCH_POKEMON_SIZE  # our bench:     1065
-    + ACTIVE_POKEMON_SIZE                 # opp active:     246
-    + N_BENCH_SLOTS * BENCH_POKEMON_SIZE  # opp bench:     1065
+    ACTIVE_POKEMON_SIZE                   # our active:     250
+    + N_BENCH_SLOTS * BENCH_POKEMON_SIZE  # our bench:     1085
+    + ACTIVE_POKEMON_SIZE                 # opp active:     250
+    + N_BENCH_SLOTS * BENCH_POKEMON_SIZE  # opp bench:     1085
     + 1                                   # turn:             1
 )
-# 246 + 1065 + 246 + 1065 + 1 = 2623
+# 250 + 1085 + 250 + 1085 + 1 = 2671
 
 
 # ── Individual encoding functions ────────────────────────────────────
@@ -591,14 +591,14 @@ def encode_active_extra(
 
 def build_observation(battle: AbstractBattle) -> np.ndarray:
     """
-    Assembles the full 2623-float observation vector from a live battle.
+    Assembles the full 2671-float observation vector from a live battle.
 
     Layout:
-      [0        :  246]  Our active Pokémon
-      [246      : 1311]  Our bench * 5  (213 each)
-      [1311     : 1557]  Opponent active Pokémon
-      [1557     : 2622]  Opponent bench * 5  (213 each)
-      [2622     : 2623]  Turn
+      [0        :  250]  Our active Pokémon
+      [250      : 1335]  Our bench * 5  (217 each)
+      [1335     : 1585]  Opponent active Pokémon
+      [1585     : 2670]  Opponent bench * 5  (217 each)
+      [2670     : 2671]  Turn
     """
     obs = np.empty(OBS_SIZE, dtype=np.float32)
     ptr = 0
