@@ -181,7 +181,7 @@ def calculate_damage_range(
         max_hp = defender_stats.get("hp", 1)  # default to 1 to avoid div by zero
 
     # ---- STAB -------------------------------------------------------
-    stab = move.type in attacker.types
+    stab = any(t.name == move.type.name for t in attacker.types)
     stab_multiplier = 1.5 if stab else 1.0
 
     # ---- Base damage (before random roll) ---------------------------
